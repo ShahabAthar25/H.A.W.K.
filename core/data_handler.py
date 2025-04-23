@@ -33,7 +33,7 @@ class DataHandler:
             data.to_csv(symbol_path)
             return data
 
-    def init_data(self):
+    def init_data(self) -> None:
         for symbol in self.symbols:
             self.data[symbol] = self.fetch_data(symbol)
             self.total[symbol] = len(self.data[symbol])
@@ -50,6 +50,9 @@ class DataHandler:
 
         self.index += 1
         return next_data
+
+    def reset(self):
+        self.index = 0
 
     def has_next(self):
         return self.index <= self.max_index
