@@ -1,11 +1,12 @@
-from pathlib import Path
 from datetime import datetime, timedelta
-from typing import Dict, List
+from pathlib import Path
+from typing import Dict, List, Optional
 
 import pandas as pd
 import yfinance as yf
 
 CURRENT_DIR = Path(__file__).parent.parent.resolve()
+
 
 class DataHandler:
     def __init__(self, symbols: List[str]) -> None:
@@ -13,6 +14,7 @@ class DataHandler:
         self.data: Dict[str, pd.DataFrame] = {}
         self.index = 0
         self.max_index = 0
+        self.total = {}
 
         self.init_data()
 
@@ -34,14 +36,17 @@ class DataHandler:
     def init_data(self):
         for symbol in self.symbols:
             self.data[symbol] = self.fetch_data(symbol)
-
-        self.max_index = max(len(df) for df in self.data.values())
+            self.total[symbol] = len(self.data[symbol])
 
     def get_next(self):
-        next_data = {
-            symbol: df.iloc[self.index]
-            for symbol, df in self.data.items()
-        }
+        next_data: Dict[str, Optional[pd.DataFrame, None]] = {}
+
+        for symbol, df in self.data.items():
+            if self.index < self.total[symbol]:
+                next_data[symbol] = df.iloc[self.index]
+
+            else:
+                next_data[symbol] = None
 
         self.index += 1
         return next_data
