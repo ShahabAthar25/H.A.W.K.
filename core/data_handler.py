@@ -39,7 +39,7 @@ class DataHandler:
             self.total[symbol] = len(self.data[symbol])
 
     def get_next(self):
-        next_data: Dict[str, Optional[pd.DataFrame, None]] = {}
+        next_data: Dict[str, Optional[pd.Series]] = {}
 
         for symbol, df in self.data.items():
             if self.index < self.total[symbol]:
