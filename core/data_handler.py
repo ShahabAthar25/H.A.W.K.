@@ -35,8 +35,12 @@ class DataHandler:
 
     def init_data(self) -> None:
         for symbol in self.symbols:
-            self.data[symbol] = self.fetch_data(symbol)
+            data = self.fetch_data(symbol)
+            data = data.sort_index()
+            self.data[symbol] = data
             self.total[symbol] = len(self.data[symbol])
+
+        self.max_index = self.total.get(max(self.total, key=self.total.get))
 
     def get_next(self):
         next_data: Dict[str, Optional[pd.Series]] = {}
@@ -50,9 +54,16 @@ class DataHandler:
 
         self.index += 1
         return next_data
-
+    
     def reset(self):
         self.index = 0
 
     def has_next(self):
         return self.index <= self.max_index
+
+    def head(self):
+        for symbol, data in self.data.items():
+            print(symbol)
+            print("============================================================================")
+            print(data.head(50))
+            print("============================================================================")

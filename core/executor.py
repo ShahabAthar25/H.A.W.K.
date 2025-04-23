@@ -81,7 +81,10 @@ class TradeExecutor:
             self.positions[symbol].mark_price(price)
 
     def get_position(self, symbol: str) -> Position:
-        return self.positions[symbol]
+        return self.positions.get(symbol, None)
+    
+    def has_position(self, symbol: str) -> bool:
+        return symbol in self.positions and self.positions[symbol].is_open()
 
     def summary(self):
         print("=== Positions Summary ===")
