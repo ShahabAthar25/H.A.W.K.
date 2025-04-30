@@ -3,9 +3,9 @@ from core.portfolio import Portfolio
 from core.executor import TradeExecutor
 
 class Engine:
-    def __init__(self, symbols, group_config, initial_balance):
-        self.data_handler = DataHandler(symbols)
+    def __init__(self, group_config, initial_balance):
         self.portfolio = Portfolio(balance=initial_balance, group_config=group_config)
+        self.data_handler = DataHandler([symbol for symbol in self.portfolio.get_flat_allocations().keys()])
         self.executor = TradeExecutor()
         self.starting_balance = initial_balance
 

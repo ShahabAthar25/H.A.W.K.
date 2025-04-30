@@ -1,46 +1,96 @@
+import os
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, List, Optional
 
 import pandas as pd
-import yfinance as yf
+from alpaca.data.historical import (CryptoHistoricalDataClient,
+                                    StockHistoricalDataClient)
+from alpaca.data.requests import CryptoBarsRequest, StockBarsRequest
+from alpaca.data.timeframe import TimeFrame, TimeFrameUnit
 
 CURRENT_DIR = Path(__file__).parent.parent.resolve()
+DATA_DIR = CURRENT_DIR / "data"
 
 
 class DataHandler:
-    def __init__(self, symbols: List[str]) -> None:
+    def __init__(self, symbols: Dict[str, List], interval: str = "15m") -> None:
         self.symbols = symbols
+        self.interval = interval
         self.data: Dict[str, pd.DataFrame] = {}
         self.index = 0
         self.max_index = 0
         self.total = {}
 
+        self.API_KEY = os.environ.get("APCA_API_KEY_ID")
+        self.API_SECRET = os.environ.get("APCA_API_SECRET_KEY")
+
+        self.stock_client = StockHistoricalDataClient(self.API_KEY, self.API_SECRET)
+        self.crypto_client = CryptoHistoricalDataClient()
+
+        DATA_DIR.mkdir(parents=True, exist_ok=True)
+
         self.init_data()
 
-    def fetch_data(self, symbol, interval="1h") -> pd.DataFrame:
-        symbol_path = f"{CURRENT_DIR}/data/{symbol}-{interval}.csv"
-
-        if Path(symbol_path).exists():
-            return pd.read_csv(symbol_path, index_col=0, parse_dates=True)
-
+    def map_interval(self) -> TimeFrame:
+        if self.interval == "15m":
+            return TimeFrame(15, TimeFrameUnit.Minute)
+        elif self.interval == "1h":
+            return TimeFrame(1, TimeFrameUnit.Hour)
+        elif self.interval == "1d":
+            return TimeFrame(1, TimeFrameUnit.Day)
         else:
-            print(f"Downloading symbol: {symbol}")
-            now = datetime.now()
-            start = now - timedelta(days=730)
-            ticker = yf.Ticker(symbol)
-            data = ticker.history(interval="1h", start=start)
-            data.to_csv(symbol_path)
-            return data
+            raise ValueError(f"Unsupported interval: {self.interval}")
+
+    def fetch_data(self, symbol: str, asset_type: str) -> pd.DataFrame:
+        filename = DATA_DIR / f"{symbol.replace("/", "-")}-{self.interval}.csv"
+        if filename.exists():
+            return pd.read_csv(
+                filename, parse_dates=["timestamp"], index_col="timestamp"
+            )
+
+        print(f"Fetching {asset_type} data for {symbol}...")
+        tf = self.map_interval()
+
+        end_date = datetime.now() - timedelta(days=5)
+
+        if asset_type == "crypto":
+            request = CryptoBarsRequest(
+                symbol_or_symbols=symbol,
+                timeframe=tf,
+                end=end_date.date(),
+                start="2021-04-01",
+            )
+            bars = self.crypto_client.get_crypto_bars(request).df
+        elif asset_type == "equity":
+            request = StockBarsRequest(
+                symbol_or_symbols=symbol,
+                timeframe=tf,
+                end=end_date.date(),
+                start="2018-04-01",
+            )
+            bars = self.stock_client.get_stock_bars(request).df
+        else:
+            raise ValueError(f"Unknown asset type: {asset_type}")
+
+        bars = bars.copy()
+        bars = bars.reset_index()
+        bars = bars[["timestamp", "open", "high", "low", "close", "volume", "vwap"]]
+        bars = bars.set_index("timestamp")
+        bars.to_csv(filename)
+
+        return bars
 
     def init_data(self) -> None:
-        for symbol in self.symbols:
-            data = self.fetch_data(symbol)
-            data = data.sort_index()
-            self.data[symbol] = data
-            self.total[symbol] = len(self.data[symbol])
+        for group, symbols in self.symbols.items():
+            asset_type = group.lower()
+            for symbol in symbols:
+                df = self.fetch_data(symbol, asset_type)
+                df = df.sort_index()
+                self.data[symbol] = df
+                self.total[symbol] = len(df)
 
-        self.max_index = self.total.get(max(self.total, key=self.total.get))
+        self.max_index = max(self.total.values())
 
     def get_next(self):
         next_data: Dict[str, Optional[pd.Series]] = {}
@@ -54,16 +104,9 @@ class DataHandler:
 
         self.index += 1
         return next_data
-    
+
     def reset(self):
         self.index = 0
 
     def has_next(self):
         return self.index <= self.max_index
-
-    def head(self):
-        for symbol, data in self.data.items():
-            print(symbol)
-            print("============================================================================")
-            print(data.head(50))
-            print("============================================================================")
