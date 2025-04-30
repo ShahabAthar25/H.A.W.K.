@@ -76,5 +76,24 @@ class Portfolio:
             result.update(group.get_flat_allocations())
         return result
 
+    def get_symbols_data_format(self) -> Dict[str, List[str]]:
+        format_symbols = {}
+        for group in self.groups:
+            symbols = self.get_symbols_group(group)
+            format_symbols[group.name] = symbols
+
+        return format_symbols
+
+    def get_symbols_group(self, group: Group) -> List[str]:
+        symbols = []
+        for member in group.members:
+            if isinstance(member, Group):
+                new_symbols = self.get_symbols_group(member)
+                symbols.extend(new_symbols)
+            else:
+                symbols.append(member.symbol)
+
+        return symbols
+
     def __repr__(self):
         return f"<Portfolio balance={self.balance} groups={self.groups}>"

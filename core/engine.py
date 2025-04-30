@@ -5,13 +5,15 @@ from core.executor import TradeExecutor
 class Engine:
     def __init__(self, group_config, initial_balance):
         self.portfolio = Portfolio(balance=initial_balance, group_config=group_config)
-        self.data_handler = DataHandler([symbol for symbol in self.portfolio.get_flat_allocations().keys()])
+        self.data_handler = DataHandler(self.portfolio.get_symbols_data_format())
         self.executor = TradeExecutor()
         self.starting_balance = initial_balance
 
     def run(self):
         allocation = self.portfolio.get_flat_allocations()
         first = True
+
+        print("Running backtest")
 
         while self.data_handler.has_next():
             data = self.data_handler.get_next()
